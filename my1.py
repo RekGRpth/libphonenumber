@@ -1,9 +1,9 @@
 with open('clean.csv', 'w', encoding='utf-8') as out:
     for name in (
-        'ABC-3x.csv',
-        'ABC-4x.csv',
-        'ABC-8x.csv',
-        'DEF-9x.csv',
+        'ABC-3xx.csv',
+        'ABC-4xx.csv',
+        'ABC-8xx.csv',
+        'DEF-9xx.csv',
     ):
         print(name)
         with open(name, 'r', encoding='utf-8') as file:
