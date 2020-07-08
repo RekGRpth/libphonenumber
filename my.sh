@@ -12,4 +12,6 @@ wget -c https://rossvyaz.ru/data/DEF-9xx.csv && \
 #iconv -f cp1251 -t utf-8 DEF-9xx.csv -o DEF-9xx.csv.tmp && mv -f DEF-9xx.csv.tmp DEF-9xx.csv && \
 python3 my1.py && \
 python3 my2.py && \
+cat resources/geocoding/ru/7.txt | sort -u > resources/geocoding/ru/7.txt.s && \
+mv -f resources/geocoding/ru/7.txt.s resources/geocoding/ru/7.txt && \
 ant -f java/build.xml build-geo-data
