@@ -189,7 +189,7 @@ public class PhoneNumberUtilTest extends TestMetadataTestCase {
     assertEquals(1, metadata.getCountryCode());
     assertEquals("011", metadata.getInternationalPrefix());
     assertTrue(metadata.hasNationalPrefix());
-    assertEquals(2, metadata.numberFormatSize());
+    assertEquals(2, metadata.getNumberFormatCount());
     assertEquals("(\\d{3})(\\d{3})(\\d{4})",
                  metadata.getNumberFormat(1).getPattern());
     assertEquals("$1 $2 $3", metadata.getNumberFormat(1).getFormat());
@@ -213,8 +213,8 @@ public class PhoneNumberUtilTest extends TestMetadataTestCase {
     assertEquals(49, metadata.getCountryCode());
     assertEquals("00", metadata.getInternationalPrefix());
     assertEquals("0", metadata.getNationalPrefix());
-    assertEquals(6, metadata.numberFormatSize());
-    assertEquals(1, metadata.getNumberFormat(5).leadingDigitsPatternSize());
+    assertEquals(6, metadata.getNumberFormatCount());
+    assertEquals(1, metadata.getNumberFormat(5).getLeadingDigitsPatternCount());
     assertEquals("900", metadata.getNumberFormat(5).getLeadingDigitsPattern(0));
     assertEquals("(\\d{3})(\\d{3,4})(\\d{4})",
                  metadata.getNumberFormat(5).getPattern());
@@ -352,8 +352,8 @@ public class PhoneNumberUtilTest extends TestMetadataTestCase {
   }
 
   public void testGetCountryMobileToken() {
-    assertEquals("1", PhoneNumberUtil.getCountryMobileToken(phoneUtil.getCountryCodeForRegion(
-        RegionCode.MX)));
+    assertEquals("9", PhoneNumberUtil.getCountryMobileToken(phoneUtil.getCountryCodeForRegion(
+        RegionCode.AR)));
 
     // Country calling code for Sweden, which has no mobile token.
     assertEquals("", PhoneNumberUtil.getCountryMobileToken(phoneUtil.getCountryCodeForRegion(
@@ -878,19 +878,6 @@ public class PhoneNumberUtilTest extends TestMetadataTestCase {
         false));
     assertEquals("", phoneUtil.formatNumberForMobileDialing(deShortNumber, RegionCode.IT, false));
 
-    // Test the special logic for Hungary, where the national prefix must be added before dialing
-    // from a mobile phone for regular length numbers, but not for short numbers.
-    PhoneNumber huRegularNumber = new PhoneNumber().setCountryCode(36)
-        .setNationalNumber(301234567L);
-    assertEquals("06301234567", phoneUtil.formatNumberForMobileDialing(huRegularNumber,
-        RegionCode.HU, false));
-    assertEquals("+36301234567", phoneUtil.formatNumberForMobileDialing(huRegularNumber,
-        RegionCode.JP, false));
-    PhoneNumber huShortNumber = new PhoneNumber().setCountryCode(36).setNationalNumber(104L);
-    assertEquals("104", phoneUtil.formatNumberForMobileDialing(huShortNumber, RegionCode.HU,
-        false));
-    assertEquals("", phoneUtil.formatNumberForMobileDialing(huShortNumber, RegionCode.JP, false));
-
     // Test the special logic for NANPA countries, for which regular length phone numbers are always
     // output in international format, but short numbers are in national format.
     assertEquals("+16502530000", phoneUtil.formatNumberForMobileDialing(US_NUMBER,
@@ -913,11 +900,11 @@ public class PhoneNumberUtilTest extends TestMetadataTestCase {
   }
 
   public void testFormatByPattern() {
-    NumberFormat newNumFormat = new NumberFormat();
+    NumberFormat.Builder newNumFormat = NumberFormat.newBuilder();
     newNumFormat.setPattern("(\\d{3})(\\d{3})(\\d{4})");
     newNumFormat.setFormat("($1) $2-$3");
     List<NumberFormat> newNumberFormats = new ArrayList<NumberFormat>();
-    newNumberFormats.add(newNumFormat);
+    newNumberFormats.add(newNumFormat.build());
 
     assertEquals("(650) 253-0000", phoneUtil.formatByPattern(US_NUMBER, PhoneNumberFormat.NATIONAL,
                                                              newNumberFormats));
@@ -932,6 +919,7 @@ public class PhoneNumberUtilTest extends TestMetadataTestCase {
     // followed.
     newNumFormat.setNationalPrefixFormattingRule("$NP ($FG)");
     newNumFormat.setFormat("$1 $2-$3");
+    newNumberFormats.set(0, newNumFormat.build());
     assertEquals("1 (242) 365-1234",
                  phoneUtil.formatByPattern(BS_NUMBER, PhoneNumberFormat.NATIONAL,
                                            newNumberFormats));
@@ -941,7 +929,7 @@ public class PhoneNumberUtilTest extends TestMetadataTestCase {
 
     newNumFormat.setPattern("(\\d{2})(\\d{5})(\\d{3})");
     newNumFormat.setFormat("$1-$2 $3");
-    newNumberFormats.set(0, newNumFormat);
+    newNumberFormats.set(0, newNumFormat.build());
 
     assertEquals("02-36618 300",
                  phoneUtil.formatByPattern(IT_NUMBER, PhoneNumberFormat.NATIONAL,
@@ -953,17 +941,19 @@ public class PhoneNumberUtilTest extends TestMetadataTestCase {
     newNumFormat.setNationalPrefixFormattingRule("$NP$FG");
     newNumFormat.setPattern("(\\d{2})(\\d{4})(\\d{4})");
     newNumFormat.setFormat("$1 $2 $3");
-    newNumberFormats.set(0, newNumFormat);
+    newNumberFormats.set(0, newNumFormat.build());
     assertEquals("020 7031 3000",
                  phoneUtil.formatByPattern(GB_NUMBER, PhoneNumberFormat.NATIONAL,
                                            newNumberFormats));
 
     newNumFormat.setNationalPrefixFormattingRule("($NP$FG)");
+    newNumberFormats.set(0, newNumFormat.build());
     assertEquals("(020) 7031 3000",
                  phoneUtil.formatByPattern(GB_NUMBER, PhoneNumberFormat.NATIONAL,
                                            newNumberFormats));
 
     newNumFormat.setNationalPrefixFormattingRule("");
+    newNumberFormats.set(0, newNumFormat.build());
     assertEquals("20 7031 3000",
                  phoneUtil.formatByPattern(GB_NUMBER, PhoneNumberFormat.NATIONAL,
                                            newNumberFormats));
@@ -1804,52 +1794,55 @@ public class PhoneNumberUtilTest extends TestMetadataTestCase {
 
   public void testExtractPossibleNumber() {
     // Removes preceding funky punctuation and letters but leaves the rest untouched.
-    assertEquals("0800-345-600", PhoneNumberUtil.extractPossibleNumber("Tel:0800-345-600"));
-    assertEquals("0800 FOR PIZZA", PhoneNumberUtil.extractPossibleNumber("Tel:0800 FOR PIZZA"));
+    assertEquals("0800-345-600", PhoneNumberUtil.extractPossibleNumber("Tel:0800-345-600").toString());
+    assertEquals("0800 FOR PIZZA", PhoneNumberUtil.extractPossibleNumber("Tel:0800 FOR PIZZA").toString());
     // Should not remove plus sign
-    assertEquals("+800-345-600", PhoneNumberUtil.extractPossibleNumber("Tel:+800-345-600"));
+    assertEquals("+800-345-600", PhoneNumberUtil.extractPossibleNumber("Tel:+800-345-600").toString());
     // Should recognise wide digits as possible start values.
     assertEquals("\uFF10\uFF12\uFF13",
-                 PhoneNumberUtil.extractPossibleNumber("\uFF10\uFF12\uFF13"));
+                 PhoneNumberUtil.extractPossibleNumber("\uFF10\uFF12\uFF13").toString());
     // Dashes are not possible start values and should be removed.
     assertEquals("\uFF11\uFF12\uFF13",
-                 PhoneNumberUtil.extractPossibleNumber("Num-\uFF11\uFF12\uFF13"));
+                 PhoneNumberUtil.extractPossibleNumber("Num-\uFF11\uFF12\uFF13").toString());
     // If not possible number present, return empty string.
-    assertEquals("", PhoneNumberUtil.extractPossibleNumber("Num-...."));
+    assertEquals("", PhoneNumberUtil.extractPossibleNumber("Num-....").toString());
     // Leading brackets are stripped - these are not used when parsing.
-    assertEquals("650) 253-0000", PhoneNumberUtil.extractPossibleNumber("(650) 253-0000"));
+    assertEquals("650) 253-0000", PhoneNumberUtil.extractPossibleNumber("(650) 253-0000").toString());
 
     // Trailing non-alpha-numeric characters should be removed.
-    assertEquals("650) 253-0000", PhoneNumberUtil.extractPossibleNumber("(650) 253-0000..- .."));
-    assertEquals("650) 253-0000", PhoneNumberUtil.extractPossibleNumber("(650) 253-0000."));
+    assertEquals("650) 253-0000", PhoneNumberUtil.extractPossibleNumber("(650) 253-0000..- ..").toString());
+    assertEquals("650) 253-0000", PhoneNumberUtil.extractPossibleNumber("(650) 253-0000.").toString());
     // This case has a trailing RTL char.
-    assertEquals("650) 253-0000", PhoneNumberUtil.extractPossibleNumber("(650) 253-0000\u200F"));
+    assertEquals("650) 253-0000", PhoneNumberUtil.extractPossibleNumber("(650) 253-0000\u200F").toString());
   }
 
   public void testMaybeStripNationalPrefix() {
-    PhoneMetadata metadata = new PhoneMetadata();
+    PhoneMetadata.Builder metadata = PhoneMetadata.newBuilder();
+    metadata.setId("ignored");
     metadata.setNationalPrefixForParsing("34");
-    metadata.setGeneralDesc(new PhoneNumberDesc().setNationalNumberPattern("\\d{4,8}"));
+    metadata
+        .getGeneralDescBuilder()
+        .setNationalNumberPattern("\\d{4,8}");
     StringBuilder numberToStrip = new StringBuilder("34356778");
     String strippedNumber = "356778";
-    assertTrue(phoneUtil.maybeStripNationalPrefixAndCarrierCode(numberToStrip, metadata, null));
+    assertTrue(phoneUtil.maybeStripNationalPrefixAndCarrierCode(numberToStrip, metadata.build(), null));
     assertEquals("Should have had national prefix stripped.",
                  strippedNumber, numberToStrip.toString());
     // Retry stripping - now the number should not start with the national prefix, so no more
     // stripping should occur.
-    assertFalse(phoneUtil.maybeStripNationalPrefixAndCarrierCode(numberToStrip, metadata, null));
+    assertFalse(phoneUtil.maybeStripNationalPrefixAndCarrierCode(numberToStrip, metadata.build(), null));
     assertEquals("Should have had no change - no national prefix present.",
                  strippedNumber, numberToStrip.toString());
     // Some countries have no national prefix. Repeat test with none specified.
     metadata.setNationalPrefixForParsing("");
-    assertFalse(phoneUtil.maybeStripNationalPrefixAndCarrierCode(numberToStrip, metadata, null));
+    assertFalse(phoneUtil.maybeStripNationalPrefixAndCarrierCode(numberToStrip, metadata.build(), null));
     assertEquals("Should not strip anything with empty national prefix.",
                  strippedNumber, numberToStrip.toString());
     // If the resultant number doesn't match the national rule, it shouldn't be stripped.
     metadata.setNationalPrefixForParsing("3");
     numberToStrip = new StringBuilder("3123");
     strippedNumber = "3123";
-    assertFalse(phoneUtil.maybeStripNationalPrefixAndCarrierCode(numberToStrip, metadata, null));
+    assertFalse(phoneUtil.maybeStripNationalPrefixAndCarrierCode(numberToStrip, metadata.build(), null));
     assertEquals("Should have had no change - after stripping, it wouldn't have matched "
         + "the national rule.",
         strippedNumber, numberToStrip.toString());
@@ -1858,8 +1851,9 @@ public class PhoneNumberUtilTest extends TestMetadataTestCase {
     numberToStrip = new StringBuilder("08122123456");
     strippedNumber = "22123456";
     StringBuilder carrierCode = new StringBuilder();
-    assertTrue(phoneUtil.maybeStripNationalPrefixAndCarrierCode(
-        numberToStrip, metadata, carrierCode));
+    assertTrue(
+        phoneUtil.maybeStripNationalPrefixAndCarrierCode(
+            numberToStrip, metadata.build(), carrierCode));
     assertEquals("81", carrierCode.toString());
     assertEquals("Should have had national prefix and carrier code stripped.",
                  strippedNumber, numberToStrip.toString());
@@ -1869,7 +1863,8 @@ public class PhoneNumberUtilTest extends TestMetadataTestCase {
     metadata.setNationalPrefixForParsing("0(\\d{2})");
     numberToStrip = new StringBuilder("031123");
     String transformedNumber = "5315123";
-    assertTrue(phoneUtil.maybeStripNationalPrefixAndCarrierCode(numberToStrip, metadata, null));
+    assertTrue(
+        phoneUtil.maybeStripNationalPrefixAndCarrierCode(numberToStrip, metadata.build(), null));
     assertEquals("Should transform the 031 to a 5315.",
                  transformedNumber, numberToStrip.toString());
   }

@@ -62,7 +62,7 @@ public class AsYouTypeFormatter {
   // code, from the national number.
   private static final char SEPARATOR_BEFORE_NATIONAL_NUMBER = ' ';
   private static final PhoneMetadata EMPTY_METADATA =
-      new PhoneMetadata().setInternationalPrefix("NA");
+      PhoneMetadata.newBuilder().setId("<ignored>").setInternationalPrefix("NA").build();
   private PhoneMetadata defaultMetadata;
   private PhoneMetadata currentMetadata;
 
@@ -166,9 +166,9 @@ public class AsYouTypeFormatter {
     // First decide whether we should use international or national number rules.
     boolean isInternationalNumber = isCompleteNumber && extractedNationalPrefix.length() == 0;
     List<NumberFormat> formatList =
-        (isInternationalNumber && currentMetadata.intlNumberFormatSize() > 0)
-            ? currentMetadata.intlNumberFormats()
-            : currentMetadata.numberFormats();
+        (isInternationalNumber && currentMetadata.getIntlNumberFormatCount() > 0)
+            ? currentMetadata.getIntlNumberFormatList()
+            : currentMetadata.getNumberFormatList();
     for (NumberFormat format : formatList) {
       // Discard a few formats that we know are not relevant based on the presence of the national
       // prefix.
@@ -203,12 +203,12 @@ public class AsYouTypeFormatter {
     Iterator<NumberFormat> it = possibleFormats.iterator();
     while (it.hasNext()) {
       NumberFormat format = it.next();
-      if (format.leadingDigitsPatternSize() == 0) {
+      if (format.getLeadingDigitsPatternCount() == 0) {
         // Keep everything that isn't restricted by leading digits.
         continue;
       }
       int lastLeadingDigitsPattern =
-          Math.min(indexOfLeadingDigitsPattern, format.leadingDigitsPatternSize() - 1);
+          Math.min(indexOfLeadingDigitsPattern, format.getLeadingDigitsPatternCount() - 1);
       Pattern leadingDigitsPattern = regexCache.getPatternForRegex(
           format.getLeadingDigitsPattern(lastLeadingDigitsPattern));
       Matcher m = leadingDigitsPattern.matcher(leadingDigits);
@@ -426,7 +426,19 @@ public class AsYouTypeFormatter {
             NATIONAL_PREFIX_SEPARATORS_PATTERN.matcher(
                 numberFormat.getNationalPrefixFormattingRule()).find();
         String formattedNumber = m.replaceAll(numberFormat.getFormat());
-        return appendNationalNumber(formattedNumber);
+        // Check that we did not remove nor add any extra digits when we matched
+        // this formatting pattern. This usually happens after we entered the last
+        // digit during AYTF. Eg: In case of MX, we swallow mobile token (1) when
+        // formatted but AYTF should retain all the number entered and not change
+        // in order to match a format (of same leading digits and length) display
+        // in that way.
+        String fullOutput = appendNationalNumber(formattedNumber);
+        String formattedNumberDigitsOnly = PhoneNumberUtil.normalizeDiallableCharsOnly(fullOutput);
+        if (formattedNumberDigitsOnly.contentEquals(accruedInputWithoutFormatting)) {
+          // If it's the same (i.e entered number and format is same), then it's
+          // safe to return this in formatted number as nothing is lost / added.
+          return fullOutput;
+        }
       }
     }
     return "";
